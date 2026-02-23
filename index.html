@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能交通数字孪生系统</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#00E5FF",
+                        "background-dark": "#0A0E14",
+                        "panel-dark": "#121820",
+                        "accent-green": "#00FF94",
+                        "accent-yellow": "#FFD600",
+                        "accent-red": "#FF3D00",
+                        "accent-orange": "#FF9100",
+                    },
+                    fontFamily: {
+                        display: ["'Noto Sans SC'", "sans-serif"],
+                        mono: ["'JetBrains Mono'", "monospace"],
+                    },
+                },
+            },
+        };
+    </script>
+    <style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-background-dark text-slate-100 font-display overflow-hidden h-screen;
+            }
+        }
+        @layer components {
+            .tech-border {
+                @apply relative border border-white/10;
+            }
+            .grid-bg {
+                background-image: linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+                                  linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+                background-size: 20px 20px;
+            }
+            .glass-header {
+                @apply bg-white/[0.03] backdrop-blur-md;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+                @apply w-1;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                @apply bg-white/10 rounded-full;
+            }
+            .alert-breathing {
+                animation: breathing 2s ease-in-out infinite;
+            }
+            @keyframes breathing {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+
+            /* 全屏扩展类 */
+            .is-expanded {
+                @apply fixed inset-0 z-[150] m-0 rounded-none w-screen h-screen bg-background-dark shadow-[0_0_100px_rgba(0,0,0,0.8)];
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            /* 平滑过渡基础类 */
+            .expand-transition {
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.36.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
