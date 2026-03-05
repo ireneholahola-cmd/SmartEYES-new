@@ -28,21 +28,74 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isExpanded, onToggleExp
   const [isSaving, setIsSaving] = useState(false);
 
   // 核心数据状态
-  const [localNodeData, setLocalNodeData] = useState<Record<string, GraphNodeData>>({
-    'HUB-CENTER': { id: 'HUB-CENTER', type: 'hub', status: 'active', lanes: [], lastSync: '0ms', details: '核心枢纽节点', weight: 100, threshold: 0 },
-    'NODE_01': { id: 'NODE_01', type: 'sensor', status: 'active', lanes: [], lastSync: '1ms', details: '传感器节点 01', weight: 50, threshold: 10 },
-  });
+  const [localNodeData, setLocalNodeData] = useState<Record<string, GraphNodeData>>({});
+  const [nodes, setNodes] = useState<NodePosition[]>([]);
+  const [links, setLinks] = useState<Link[]>([]);
 
-  const [nodes, setNodes] = useState<NodePosition[]>([
-    { id: 'HUB-CENTER', x: 400, y: 200 },
-    { id: 'NODE_01', x: 200, y: 100 },
-  ]);
+  // Simulation state
+  const [isSimulating, setIsSimulating] = useState(false);
+  const graphRef = useRef<any>(); // Using any for mock ref
 
-  const [links, setLinks] = useState<Link[]>([
-    { id: 'link-1', source: 'HUB-CENTER', target: 'NODE_01' },
-  ]);
+  useEffect(() => {
+    const handleStart = () => {
+      console.log("KnowledgeGraph simulation started");
+      setIsSimulating(true);
+    };
+    window.addEventListener('start-simulations', handleStart);
+    return () => window.removeEventListener('start-simulations', handleStart);
+  // }, []);
+  */
 
-  // 从后端加载数据
+  useEffect(() => {
+    if (isSimulating) {
+      startPoppingNodes();
+    }
+  }, [isSimulating]);
+
+  const mockNodes = [
+      { id: 'CAR_1', x: 100, y: 150, data: { id: 'CAR_1', type: 'vehicle', status: 'active', details: '车辆 1' } },
+      { id: 'ROAD_A', x: 250, y: 120, data: { id: 'ROAD_A', type: 'road', status: 'active', details: '路段 A' } },
+      { id: 'JAM_1', x: 280, y: 250, data: { id: 'JAM_1', type: 'event', status: 'warning', details: '拥堵事件' } },
+      { id: 'CAR_2', x: 400, y: 200, data: { id: 'CAR_2', type: 'vehicle', status: 'active', details: '车辆 2' } },
+  ];
+
+  const mockLinks = [
+      { id: 'link-1', source: 'CAR_1', target: 'ROAD_A' },
+      { id: 'link-2', source: 'ROAD_A', target: 'JAM_1' },
+      { id: 'link-3', source: 'CAR_2', target: 'ROAD_A' },
+  ];
+
+  const startPoppingNodes = () => {
+    let count = 0;
+    const timer = setInterval(() => {
+      if (count < mockNodes.length) {
+        const newNode = mockNodes[count];
+        setNodes(prev => [...prev, { id: newNode.id, x: newNode.x, y: newNode.y }]);
+        setLocalNodeData(prev => ({...prev, [newNode.id]: newNode.data as GraphNodeData}));
+
+        // Add links related to this node
+        const newLinks = mockLinks.filter(l => l.source === newNode.id || l.target === newNode.id);
+        setLinks(prev => [...prev, ...newLinks]);
+
+        // Simulate focus
+        if (graphRef.current) {
+            // This is a simplified focus simulation by changing panOffset
+            const targetX = 800 / 2 - newNode.x;
+            const targetY = 400 / 2 - newNode.y;
+            // A real library would have a method like centerAt(x, y)
+            setPanOffset({ x: -targetX, y: -targetY });
+        }
+
+        console.log(`模拟：知识图谱冒出节点 - ${newNode.data.details}`);
+        count++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 1500); // Every 1.5 seconds
+  };
+
+  // 从后端加载数据 - 被禁用以进行模拟
+  /*
   useEffect(() => {
     const loadData = async () => {
       try {

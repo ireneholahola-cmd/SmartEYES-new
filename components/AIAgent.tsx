@@ -1,63 +1,60 @@
-import React from 'react';
-import { AIReport } from '../types';
+import React, { useEffect, useState } from 'react';
 
-interface AIAgentProps {
-  report: AIReport;
-  onMinimize?: () => void;
-}
+const AIAgent: React.FC<{graphData?: any}> = ({ graphData }) => {
+  const [logs, setLogs] = useState<{time: string, msg: string, type: 'info' | 'warn' | 'action'}[]>([]);
+  const [isStarted, setIsStarted] = useState(false);
 
-const AIAgent: React.FC<AIAgentProps> = ({ report, onMinimize }) => {
+  useEffect(() => {
+    const handleStart = () => setIsStarted(true);
+    window.addEventListener('start-simulations', handleStart);
+    return () => window.removeEventListener('start-simulations', handleStart);
+  }, []);
+
+  useEffect(() => {
+    if (isStarted) {
+      const interval = setInterval(() => {
+        generateMockAdvice();
+      }, 3000); // Generate advice every 3 seconds
+      return () => clearInterval(interval);
+    }
+  }, [isStarted]);
+
+  const generateMockAdvice = () => {
+    const nodeLabels = ['CAR_1', 'ROAD_A', 'JAM_1', 'CAR_2'];
+    const randomNode = nodeLabels[Math.floor(Math.random() * nodeLabels.length)];
+
+    const advices = [
+      `检测到 ${randomNode}，建议调整红绿灯配时。`,
+      `当前道路负荷较高，已自动诱导至替代路径。`,
+      "道路情况正常，持续监控中..."
+    ];
+    const randomAdvice = advices[Math.floor(Math.random() * advices.length)];
+    
+    const newLog = {
+        time: new Date().toLocaleTimeString(),
+        msg: `[KGIN] ${randomAdvice}`,
+        type: (randomAdvice.includes("建议") || randomAdvice.includes("诱导")) ? 'action' : 'info' as const
+    };
+
+    setLogs(prev => [newLog, ...prev].slice(0, 50));
+  };
+
   return (
-    <div className="h-full backdrop-blur-panel tech-border rounded-lg overflow-hidden flex flex-col bg-panel-dark/40">
-      <header className="glass-header p-3 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-primary/5 to-transparent">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-base animate-pulse">psychology</span>
-          <h2 className="text-[10px] font-bold tracking-widest uppercase text-primary">智能诱导建议</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {onMinimize && (
-            <button onClick={onMinimize} className="material-symbols-outlined text-sm text-slate-500 hover:text-white">remove</button>
+    <div className="h-full flex flex-col font-mono text-xs overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-1 space-y-1">
+          {logs.length === 0 && (
+              <div className="text-slate-500 italic text-[10px] p-2">等待 KGIN 模拟启动...</div>
           )}
-        </div>
-      </header>
-
-      <div className="flex-1 p-4 font-mono overflow-y-auto relative">
-        {report.status === 'idle' && (
-          <div className="h-full flex flex-col items-center justify-center opacity-30 gap-3 grayscale">
-            <span className="material-symbols-outlined text-4xl">terminal</span>
-            <p className="text-[10px] uppercase tracking-[0.2em]">等待诊断指令...</p>
-          </div>
-        )}
-
-        {report.status === 'analyzing' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-ping"></span>
-              <p className="text-[11px] text-primary lowercase tracking-tight">正在拉取全量传感器数据...</p>
-            </div>
-            <div className="h-0.5 w-full bg-white/5 overflow-hidden">
-              <div className="h-full bg-primary animate-pulse" style={{ width: '40%' }}></div>
-            </div>
-          </div>
-        )}
-
-        {report.status === 'complete' && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
-            <div className="p-2.5 bg-primary/5 border-l-2 border-primary rounded-r">
-              <h3 className="text-[9px] font-bold uppercase text-primary mb-1">状况综述</h3>
-              <p className="text-[11px] text-slate-200 leading-relaxed">{report.summary}</p>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-[9px] font-bold uppercase text-accent-green mb-1 flex items-center gap-1">
-                <span className="material-symbols-outlined text-[10px]">auto_fix_high</span>
-                建议
-              </h3>
-              {report.recommendations?.map((rec, i) => (
-                <p key={i} className="text-[10px] text-slate-400">[{i+1}] {rec}</p>
-              ))}
-            </div>
-          </div>
-        )}
+          {logs.map((log, i) => (
+              <div key={i} className={`p-1.5 rounded border-l-2 flex gap-2 ${
+                  log.type === 'warn' ? 'bg-yellow-900/10 border-yellow-500 text-yellow-200' :
+                  log.type === 'action' ? 'bg-cyan-900/10 border-cyan-500 text-cyan-200' :
+                  'border-slate-600 text-slate-400'
+              }`}>
+                  <span className="opacity-50 text-[9px]">{log.time}</span>
+                  <span className="font-bold">{log.msg}</span>
+              </div>
+          ))}
       </div>
     </div>
   );

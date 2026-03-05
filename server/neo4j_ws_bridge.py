@@ -371,4 +371,5 @@ if __name__ == "__main__":
     print(f"启动 Neo4j WebSocket Bridge...")
     print(f"Neo4j URI: {NEO4J_URI}")
     print(f"Database: {NEO4J_DATABASE}")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Port changed to 8002 to avoid conflict with DEIM (8000)
+    uvicorn.run(app, host="127.0.0.1", port=8003)

@@ -39,3 +39,46 @@ export interface GraphNodeData {
   weight?: number;
   threshold?: number;
 }
+
+// ─── Time-Series Protocol (Phase 1) ───
+
+export interface TimeSeriesData {
+  taskId: string;
+  totalFrames: number;
+  fps: number;
+  duration: number;
+  frames: FrameData[];
+}
+
+export interface FrameData {
+  frameId: number;
+  timestamp: number; // in seconds
+  detections: Detection[];
+  events: TrafficEvent[];
+  stats: FrameStats;
+}
+
+export interface Detection {
+  id: string; // track_id
+  class: string; // car, bus, truck, etc.
+  bbox: [number, number, number, number]; // [x1, y1, x2, y2]
+  confidence: number;
+  // 3D mapping for Unity
+  worldPos?: { x: number; y: number; z: number };
+}
+
+export interface TrafficEvent {
+  id: string;
+  type: 'accident' | 'congestion' | 'violation' | 'obstacle';
+  severity: 'low' | 'medium' | 'high';
+  description: string;
+  location?: { x: number; y: number };
+  timestamp: string;
+  nodeId?: string; // Associated Graph Node ID
+}
+
+export interface FrameStats {
+  vehicleCount: number;
+  averageSpeed?: number;
+  density?: number;
+}

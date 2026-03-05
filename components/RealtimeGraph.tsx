@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import ForceGraph2D, { ForceGraphMethods } from 'react-force-graph-2d';
 import { kginService, TrafficAdvice } from '../lib/kgin_service';
+import { useStore } from '../src/store/useStore';
 
 interface GraphNode {
   id: string;
@@ -54,6 +55,36 @@ const RealtimeGraph: React.FC<RealtimeGraphProps> = ({
   const [trafficAdvice, setTrafficAdvice] = useState<TrafficAdvice | null>(null);
   const [recommendedNodes, setRecommendedNodes] = useState<Set<string>>(new Set());
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
+  
+  // Phase 3: Visual Tracking
+  const { currentFrame, data } = useStore();
+  const lastTriggerTime = useRef<number>(0);
+
+  useEffect(() => {
+    if (!data || !data.frames || !fgRef.current) return;
+    
+    // Event Debouncing (3s)
+    const now = Date.now();
+    if (now - lastTriggerTime.current < 3000) return;
+
+    const frameData = data.frames[currentFrame];
+    if (frameData && frameData.events && frameData.events.length > 0) {
+        // Just take the first event for now
+        const event = frameData.events[0];
+        if (event.nodeId) {
+             const node = graphData.nodes.find(n => n.id === event.nodeId);
+             if (node && typeof node.x === 'number' && typeof node.y === 'number') {
+                 // 视觉追踪: Smooth Pan to Node
+                 fgRef.current.centerAt(node.x, node.y, 800);
+                 fgRef.current.zoom(2, 800);
+                 
+                 // Highlight (Temporary)
+                 setSelectedNode(node);
+                 lastTriggerTime.current = now;
+             }
+        }
+    }
+  }, [currentFrame, data, graphData]);
 
   // 计算统计信息
   useEffect(() => {
@@ -266,60 +297,30 @@ const RealtimeGraph: React.FC<RealtimeGraphProps> = ({
       ref={containerRef}
       className={`h-full tech-border rounded-lg overflow-hidden relative flex flex-col expand-transition ${isExpanded ? 'is-expanded' : 'bg-panel-dark/30'}`}
     >
-      {/* 头部 */}
-      <header className="glass-header px-4 py-2.5 border-b border-white/10 flex justify-between items-center shrink-0 z-50">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-accent-green text-base animate-pulse">hub</span>
-          <h2 className="text-[10px] font-bold tracking-widest uppercase text-slate-200">
-            Neo4j 实时图谱
-            <span className="text-accent-green/60 font-normal ml-2 lowercase">
-              [{stats.vehicles} 车辆 / {stats.roads} 路段 / 平均 {stats.avgSpeed} km/h]
-            </span>
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* 重置选择 */}
-          {selectedNode && (
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="px-2 py-1 text-[9px] text-accent-red border border-accent-red/30 rounded hover:bg-accent-red/10 transition-all"
-            >
-              清除选择
-            </button>
-          )}
-
-          {/* 自适应视图 */}
-          <button
-            onClick={() => fgRef.current?.zoomToFit(400, 50)}
-            className="w-7 h-7 flex items-center justify-center border border-white/10 rounded bg-white/5 hover:border-primary transition-all"
-            title="自适应视图"
-          >
-            <span className="material-symbols-outlined text-sm">fit_screen</span>
-          </button>
-
-          {onToggleExpand && (
-            <button
-              onClick={onToggleExpand}
-              className="w-7 h-7 flex items-center justify-center border border-white/10 rounded bg-white/5 hover:border-primary transition-all"
-            >
-              <span className="material-symbols-outlined text-base">{isExpanded ? 'fullscreen_exit' : 'fullscreen'}</span>
-            </button>
-          )}
-
-          {onMinimize && !isExpanded && (
-            <button
-              onClick={onMinimize}
-              className="w-7 h-7 flex items-center justify-center border border-white/10 rounded hover:bg-white/5 transition-all"
-            >
-              <span className="material-symbols-outlined text-sm text-slate-500">remove</span>
-            </button>
-          )}
-        </div>
-      </header>
-
       {/* 图谱画布 */}
       <div className="flex-1 relative" style={{ background: '#0b0f1a' }}>
+        {/* Integrated Header Stats (Floating) */}
+        <div className="absolute top-2 left-2 right-2 flex justify-between items-center z-20 pointer-events-none">
+            <div className="flex gap-4">
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 backdrop-blur-sm">
+                    <div className="w-2 h-2 rounded-full bg-[#4ade80] shadow-[0_0_5px_rgba(74,222,128,0.6)]"></div>
+                    <span className="text-[10px] text-slate-300">车辆: <span className="text-white font-bold">{stats.vehicles}</span></span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 backdrop-blur-sm">
+                    <div className="w-2 h-2 rounded-full bg-[#3b82f6] shadow-[0_0_5px_rgba(59,130,246,0.6)]"></div>
+                    <span className="text-[10px] text-slate-300">路段: <span className="text-white font-bold">{stats.roads}</span></span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 backdrop-blur-sm">
+                    <div className="w-2 h-2 rounded-full bg-[#f59e0b] shadow-[0_0_5px_rgba(245,158,11,0.6)]"></div>
+                    <span className="text-[10px] text-slate-300">交叉口</span>
+                </div>
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 backdrop-blur-sm">
+                <span className="text-[10px] text-slate-400">平均速度:</span>
+                <span className="text-[10px] text-cyan-400 font-mono">{stats.avgSpeed} km/h</span>
+            </div>
+        </div>
+
         {graphData.nodes.length === 0 ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
             <span className="material-symbols-outlined text-4xl mb-2 opacity-30">share</span>

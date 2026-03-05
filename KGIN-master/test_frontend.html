@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Traffic SmartEYES KGIN 前端调用演示</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; }
+        button { background-color: #3498db; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        button:hover { background-color: #2980b9; }
+        input { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; width: 60px; }
+        #result { background-color: #f8f9fa; padding: 1rem; border-radius: 4px; white-space: pre-wrap; margin-top: 1rem; border: 1px solid #eee; }
+        .status { margin-top: 0.5rem; font-size: 0.9rem; color: #666; }
+        .success { color: #27ae60; }
+        .error { color: #c0392b; }
+    </style>
+</head>
+<body>
+    <h1>🚗 Traffic SmartEYES - KGIN 诱导测试</h1>
+    
+    <div class="card">
+        <h3>模拟前端调用</h3>
+        <p>输入当前检测到的路况/位置 ID (User ID)，获取 KGIN 推荐的诱导方案。</p>
+        
+        <label for="userId">路况 ID:</label>
+        <input type="number" id="userId" value="0" min="0">
+        
+        <label for="kNum" style="margin-left: 1rem;">推荐数量 (Top-K):</label>
+        <input type="number" id="kNum" value="5" min="1" max="20">
+        
+        <button onclick="getRecommendation()" style="margin-left: 1rem;">获取建议</button>
+        
+        <div id="status" class="status">等待操作...</div>
+    </div>
+
+    <div class="card">
+        <h3>API 返回结果 (JSON)</h3>
+        <div id="result">暂无数据</div>
+    </div>
+
+    <script>
+        // 配置 API 地址 (根据实际情况修改，本地测试通常是 localhost:8000)
+        const API_URL = "http://localhost:8000/predict";
+
+        async function getRecommendation() {
+            const userId = document.getElementById('userId').value;
+            const k = document.getElementById('kNum').value;
+            const statusDiv = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+
+            statusDiv.textContent = "正在请求 KGIN 算法服务...";
+            statusDiv.className = "status";
+            resultDiv.textContent = "加载中...";
+
+            try {
+                // 1. 构建请求体
+                const payload = {
+                    user_id: parseInt(userId),
+                    k: parseInt(k)
+                };
+
+                // 2. 发起 POST 请求
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                // 3. 处理响应
+                if (!response.ok) {
+                    throw new Error(`HTTP 错误! 状态码: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 4. 展示结果
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                statusDiv.textContent = "✅ 调用成功";
+                statusDiv.className = "status success";
+
+                // 在真实项目中，这里会解析 data.recommended_routes 并在地图上绘制路线
+                console.log("推荐路线 ID 列表:", data.recommended_routes);
+
+            } catch (error) {
+                console.error("请求失败:", error);
+                resultDiv.textContent = "调用失败: " + error.message + "\n\n请检查：\n1. 后端服务是否已启动 (python main_api.py)\n2. 端口是否正确 (默认 8000)";
+                statusDiv.textContent = "❌ 调用失败";
+                statusDiv.className = "status error";
+            }
+        }
+    </script>
+</body>
+</html>

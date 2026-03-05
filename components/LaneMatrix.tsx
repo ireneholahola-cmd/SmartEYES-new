@@ -1,150 +1,111 @@
-import React from 'react';
-import { LaneData, SystemStats } from '../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useStore } from '../src/store/useStore';
 
-interface LaneMatrixProps {
-  lanes: LaneData[];
-  stats: SystemStats;
-  optimizedParams?: Array<{
-    laneId: string;
-    suggestedTraffic: number;
-    suggestedSpeed: number;
-    expectedQueue: number;
-    optimizationRate: number;
-  }>;
-  onTriggerAI: () => void;
-  onLaneClick: (lane: LaneData) => void;
-  aiStatus: 'analyzing' | 'idle' | 'complete';
-  onMinimize?: () => void;
-}
+const LaneMatrix: React.FC = () => {
+  const { currentFrame, data, fps } = useStore();
+  const [isStarted, setIsStarted] = useState(false);
+  const [laneData, setLaneData] = useState({ flow: 45, speed: 60, density: 22, events: 0, car: 30, truck: 10, bus: 5 });
 
-const LaneMatrix: React.FC<LaneMatrixProps> = ({ lanes, stats, optimizedParams, onTriggerAI, onLaneClick, aiStatus, onMinimize }) => {
+  useEffect(() => {
+    const handleStart = () => setIsStarted(true);
+    window.addEventListener('start-simulations', handleStart);
+    return () => window.removeEventListener('start-simulations', handleStart);
+  }, []);
+
+  useEffect(() => {
+    if (isStarted) {
+      const interval = setInterval(() => {
+        setLaneData(prev => ({
+          flow: Math.max(20, prev.flow + Math.floor((Math.random() - 0.5) * 3)),
+          speed: parseFloat(Math.max(30, prev.speed + (Math.random() - 0.5) * 1.5).toFixed(1)),
+          density: parseFloat(Math.max(10, prev.density + (Math.random() - 0.5) * 2).toFixed(1)),
+          events: Math.random() > 0.9 ? Math.floor(Math.random() * 2) + 1 : 0,
+          car: Math.max(15, prev.car + Math.floor((Math.random() - 0.5) * 3)),
+          truck: Math.max(5, prev.truck + Math.floor((Math.random() - 0.5) * 2)),
+          bus: Math.max(2, prev.bus + (Math.random() > 0.6 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
+        }));
+      }, 500); // 0.5秒更新一次
+      return () => clearInterval(interval);
+    }
+  }, [isStarted]);
+
+  const timeStr = useMemo(() => {
+      if (!isStarted) return "00:00:00";
+      const totalSeconds = Date.now() / 1000;
+      const m = new Date(totalSeconds * 1000).getMinutes().toString().padStart(2, '0');
+      const s = new Date(totalSeconds * 1000).getSeconds().toString().padStart(2, '0');
+      const ms = (new Date(totalSeconds * 1000).getMilliseconds() / 10).toFixed(0).padStart(2, '0');
+      return `${m}:${s}:${ms}`;
+  }, [laneData]); // Update with laneData to re-render
+
+  if (!isStarted) {
+    return (
+        <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-50">
+            <span className="material-symbols-outlined text-4xl mb-2">query_stats</span>
+            <span className="text-xs">等待视频分析启动...</span>
+        </div>
+    )
+  }
+
   return (
-    <div className="h-full backdrop-blur-panel tech-border rounded-lg overflow-hidden flex flex-col bg-panel-dark/40">
-      <header className="glass-header p-4 border-b border-white/10 flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary text-lg">grid_view</span>
-          <h2 className="text-[10px] font-bold tracking-widest uppercase text-primary">车道数据矩阵</h2>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse"></div>
-          {onMinimize && (
-            <button onClick={onMinimize} className="material-symbols-outlined text-sm text-slate-500 hover:text-white">remove</button>
-          )}
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-        {/* Section 1: Real-time Monitoring */}
-        <div className="p-4 border-b border-white/10">
-          <h3 className="text-[10px] font-bold text-primary mb-3 flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">monitor_heart</span>
-            实时监控测量信息
-          </h3>
-          
-          <div className="grid grid-cols-5 gap-2 pb-2 mb-2 border-b border-white/5 text-[9px] font-bold uppercase tracking-widest text-slate-500">
-            <div className="col-span-1">车道</div>
-            <div className="text-right">流量</div>
-            <div className="text-right">速度</div>
-            <div className="text-right">排队</div>
-            <div className="text-right">占有率</div>
-          </div>
-
-          <div className="space-y-1.5">
-            {lanes.map((lane) => (
-              <div 
-                key={lane.id}
-                onClick={() => onLaneClick(lane)}
-                className={`grid grid-cols-5 items-center gap-2 p-2 rounded transition-all duration-300 border border-transparent cursor-pointer ${
-                  lane.occupancy > 70 
-                  ? 'bg-accent-red/5 border-accent-red/20 alert-breathing hover:bg-accent-red/10' 
-                  : 'bg-white/5 hover:bg-primary/10 hover:border-primary/20'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-1 h-3 rounded-full ${
-                    lane.occupancy < 40 ? 'bg-accent-green' :
-                    lane.occupancy < 70 ? 'bg-accent-yellow' :
-                    'bg-accent-red'
-                  }`}></span>
-                  <span className="font-mono text-[10px] text-slate-300 whitespace-nowrap">{lane.id}</span>
-                </div>
-                <div className="font-mono text-[11px] text-right text-slate-100">{lane.traffic}</div>
-                <div className={`font-mono text-[11px] text-right ${
-                  lane.speed > 60 ? 'text-accent-green' :
-                  lane.speed > 30 ? 'text-accent-yellow' : 'text-accent-red'
-                }`}>{lane.speed}</div>
-                <div className={`font-mono text-[11px] text-right ${
-                  lane.queue > 50 ? 'text-accent-red font-bold' : 'text-slate-400'
-                }`}>{lane.queue}</div>
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden self-center relative">
-                  <div 
-                    className={`h-full transition-all duration-700 ${
-                      lane.occupancy < 40 ? 'bg-accent-green' :
-                      lane.occupancy < 70 ? 'bg-accent-yellow' : 'bg-accent-red'
-                    }`}
-                    style={{ width: `${lane.occupancy}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Section 2: Guidance Suggestions */}
-        <div className="p-4 bg-primary/5 flex-1 min-h-[200px]">
-          <h3 className="text-[10px] font-bold text-accent-green mb-3 flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">alt_route</span>
-            诱导建议交通流参数
-          </h3>
-          
-          <div className="grid grid-cols-5 gap-2 pb-2 mb-2 border-b border-white/5 text-[9px] font-bold uppercase tracking-widest text-slate-500">
-            <div className="col-span-1">建议车道</div>
-            <div className="text-right">建议流量</div>
-            <div className="text-right">建议速度</div>
-            <div className="text-right">预期排队</div>
-            <div className="text-right">优化率</div>
-          </div>
-
-          {optimizedParams && optimizedParams.length > 0 ? (
-            <div className="space-y-1.5">
-              {optimizedParams.map((param) => (
-                <div 
-                  key={param.laneId}
-                  className="grid grid-cols-5 items-center gap-2 p-2 rounded bg-accent-green/5 border border-accent-green/10"
-                >
-                  <div className="font-mono text-[10px] text-accent-green font-bold">{param.laneId}</div>
-                  <div className="font-mono text-[11px] text-right text-slate-100">{param.suggestedTraffic}</div>
-                  <div className="font-mono text-[11px] text-right text-accent-green">{param.suggestedSpeed}</div>
-                  <div className="font-mono text-[11px] text-right text-slate-400">{param.expectedQueue}</div>
-                  <div className="text-right">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-green/20 text-accent-green font-bold">
-                      +{(param.optimizationRate * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 opacity-50 gap-2 border border-dashed border-white/10 rounded">
-               <span className="material-symbols-outlined text-2xl animate-pulse">pending</span>
-               <span className="text-[10px]">等待 KGIN 诱导计算...</span>
-            </div>
-          )}
-        </div>
+    <div className="grid grid-cols-2 gap-2 p-1">
+      {/* Time Panel */}
+      <div className="col-span-2 bg-slate-800/50 p-2 rounded border border-slate-700 flex justify-between items-center">
+         <span className="text-[10px] text-slate-400 font-bold uppercase">System Time</span>
+         <span className="font-mono text-cyan-400 text-sm font-bold">{timeStr}</span>
       </div>
 
-      <footer className="p-4 bg-white/[0.02] border-t border-white/5 space-y-4 shrink-0">
-        <button 
-          onClick={onTriggerAI}
-          disabled={aiStatus === 'analyzing'}
-          className="w-full py-2.5 rounded border border-primary/30 flex items-center justify-center gap-2 transition-all hover:bg-primary/10"
-        >
-          <span className="material-symbols-outlined text-base">neurology</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest">执行 全局诊断</span>
-        </button>
-      </footer>
+      {/* Metric Cards - Grid Layout */}
+      <MetricCard label="TOTAL VEHICLES" value={laneData.flow} unit="VEH" color="text-white" />
+      <MetricCard label="AVG SPEED" value={laneData.speed.toFixed(1)} unit="KM/H" color="text-accent-green" />
+      <MetricCard label="DENSITY" value={laneData.density.toFixed(1)} unit="PCU/KM" color="text-accent-yellow" />
+      <MetricCard label="EVENTS" value={laneData.events} unit="ALERTS" color={laneData.events > 0 ? "text-accent-red animate-pulse" : "text-slate-400"} />
+
+      {/* Class Distribution */}
+      <div className="col-span-2 mt-2">
+         <div className="text-[9px] text-slate-500 font-bold uppercase mb-1 pl-1 border-l-2 border-slate-600">Class Distribution</div>
+         <div className="grid grid-cols-3 gap-1">
+            <MiniStat label="CAR" value={laneData.car} />
+            <MiniStat label="TRUCK" value={laneData.truck} />
+            <MiniStat label="BUS" value={laneData.bus} />
+         </div>
+      </div>
+      
+      {/* Event Log */}
+      <div className="col-span-2 mt-2 flex-1 min-h-0 flex flex-col">
+         <div className="text-[9px] text-slate-500 font-bold uppercase mb-1 pl-1 border-l-2 border-slate-600">Realtime Events</div>
+         <div className="space-y-1">
+             {laneData.events > 0 && Array.from({ length: laneData.events }).map((_, i) => (
+                 <div key={i} className="bg-red-900/20 border border-red-500/30 p-1.5 rounded flex items-center gap-2 animate-in fade-in">
+                     <span className="material-symbols-outlined text-xs text-red-500">warning</span>
+                     <div className="flex flex-col">
+                         <span className="text-[9px] text-red-400 font-bold uppercase">Simulated Event</span>
+                         <span className="text-[8px] text-red-300/70 truncate w-32">A random event occurred.</span>
+                     </div>
+                 </div>
+             ))}
+             {laneData.events === 0 && (
+                 <div className="text-[9px] text-slate-600 italic p-1">No active events</div>
+             )}
+         </div>
+      </div>
     </div>
   );
 };
+
+const MetricCard: React.FC<{ label: string, value: string | number, unit: string, color: string }> = ({ label, value, unit, color }) => (
+    <div className="bg-slate-800/30 border border-slate-700/50 p-2 rounded flex flex-col items-center justify-center h-16">
+        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">{label}</span>
+        <span className={`text-lg font-mono font-bold ${color} leading-tight`}>{value}</span>
+        <span className="text-[8px] text-slate-600 font-bold uppercase">{unit}</span>
+    </div>
+);
+
+const MiniStat: React.FC<{ label: string, value: number }> = ({ label, value }) => (
+    <div className="bg-slate-800/30 border border-slate-700/50 p-1 rounded flex flex-col items-center">
+        <span className="text-[8px] text-slate-500 font-bold uppercase">{label}</span>
+        <span className="text-xs font-mono text-slate-300">{value}</span>
+    </div>
+);
 
 export default LaneMatrix;

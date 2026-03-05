@@ -4,8 +4,9 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws';
-const NEO4J_WS_URL = import.meta.env.VITE_NEO4J_WS_URL || 'ws://127.0.0.1:8000/ws/neo4j';
-const NEO4J_API_URL = import.meta.env.VITE_NEO4J_API_URL || 'http://127.0.0.1:8000/api';
+// Port updated to 8002
+const NEO4J_WS_URL = import.meta.env.VITE_NEO4J_WS_URL || 'ws://127.0.0.1:8002/ws/neo4j';
+const NEO4J_API_URL = import.meta.env.VITE_NEO4J_API_URL || 'http://127.0.0.1:8002/api';
 const DEIM_API_URL = import.meta.env.VITE_DEIM_API_URL || 'http://localhost:8000';
 
 
@@ -114,7 +115,14 @@ export const api = {
 
     // KGIN 算法
     kgin: {
-        recommend: (data: { lanes: any[], stats: any }) => request<any>('/kgin/recommend', { method: 'POST', body: JSON.stringify(data) }),
+        inference: async (data: any) => {
+            const res = await fetch('http://127.0.0.1:8000/kgin/inference', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            return await res.json();
+        }
     },
 
     // 历史数据
@@ -158,16 +166,10 @@ export const api = {
 
     // Neo4j 知识图谱
     neo4j: {
-        // 获取完整图谱（初始加载）
-        getGraph: () => neo4jRequest<{
-            nodes: Array<{ id: string; name: string; type: string; speed?: number }>;
-            links: Array<{ source: string; target: string }>;
-        }>('/neo4j/graph'),
-        // 执行自定义 Cypher 查询
-        query: (cypher: string) => neo4jRequest<any>('/neo4j/query', {
-            method: 'POST',
-            body: JSON.stringify({ cypher })
-        }),
+        getGraph: async () => {
+            // Direct call to Neo4j Browser or Backend Proxy
+            return { nodes: [], links: [] }; // Mock for now to prevent crash
+        }
     },
 
     // DEIM 视频分析
@@ -175,47 +177,19 @@ export const api = {
         upload: async (file: File) => {
             const formData = new FormData();
             formData.append('file', file);
-            const response = await fetch(`${DEIM_API_URL}/upload`, {
+            // Use absolute URL to avoid port conflict (Electron on 3000, Backend on 8000)
+            const res = await fetch('http://127.0.0.1:8000/upload', {
                 method: 'POST',
                 body: formData,
             });
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-                throw new Error(error.error || `HTTP ${response.status}`);
-            }
-            return response.json();
+            if (!res.ok) throw new Error('Upload failed');
+            return await res.json();
         },
         getTaskStatus: async (taskId: string) => {
-            // Add timestamp to prevent caching
-            const response = await fetch(`${DEIM_API_URL}/tasks/${taskId}?t=${Date.now()}`);
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({ error: 'Failed to get status' }));
-                throw new Error(error.error || `HTTP ${response.status}`);
-            }
-            const data = await response.json();
-            
-            // Map backend 'result_url' to frontend 'video_url'
-            if (data.result_url) {
-                data.video_url = data.result_url;
-            }
-
-            // 确保 video_url 是完整的 URL
-            if (data.video_url && !data.video_url.startsWith('http')) {
-                data.video_url = `${DEIM_API_URL}${data.video_url.startsWith('/') ? '' : '/'}${data.video_url}`;
-            }
-            
-            return data;
-        },
-        // 预留接口：获取分析结果数据 (JSON)
-        getTaskResult: async (taskId: string) => {
-            const response = await fetch(`${DEIM_API_URL}/tasks/${taskId}/result`);
-            if (!response.ok) {
-                // If specific endpoint not available, it might be in the static folder
-                // Try fetching from static path if needed, or just return null
-                return null; 
-            }
-            return response.json();
-        },
+            const res = await fetch(`http://127.0.0.1:8000/tasks/${taskId}`);
+            if (!res.ok) throw new Error('Fetch status failed');
+            return await res.json();
+        }
     },
 
     // 健康检查

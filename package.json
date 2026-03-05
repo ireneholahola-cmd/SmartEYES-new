@@ -3,22 +3,30 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"vite --port 3000\" \"node server/src/index.js\" \"python DEIM-main/web_api.py\" \"python KGIN-master/main_api.py\" \"python server/neo4j_ws_bridge.py\" \"wait-on tcp:3000 && electron .\" > concurrently.log 2>&1"
   },
   "dependencies": {
     "@google/genai": "^1.36.0",
     "axios": "^1.13.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-force-graph-2d": "^1.29.0"
+    "react-force-graph-2d": "^1.29.0",
+    "react-unity-webgl": "^10.1.6",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "wait-on": "^9.0.4"
   }
 }
