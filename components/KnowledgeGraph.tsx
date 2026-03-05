@@ -43,8 +43,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isExpanded, onToggleExp
     };
     window.addEventListener('start-simulations', handleStart);
     return () => window.removeEventListener('start-simulations', handleStart);
-  // }, []);
-  */
+  }, []);
 
   useEffect(() => {
     if (isSimulating) {
@@ -77,21 +76,17 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isExpanded, onToggleExp
         const newLinks = mockLinks.filter(l => l.source === newNode.id || l.target === newNode.id);
         setLinks(prev => [...prev, ...newLinks]);
 
-        // Simulate focus
-        if (graphRef.current) {
-            // This is a simplified focus simulation by changing panOffset
-            const targetX = 800 / 2 - newNode.x;
-            const targetY = 400 / 2 - newNode.y;
-            // A real library would have a method like centerAt(x, y)
-            setPanOffset({ x: -targetX, y: -targetY });
-        }
+        // Simulate smooth focus
+        const targetX = newNode.x - 400; // Center view on node
+        const targetY = newNode.y - 200;
+        setPanOffset({ x: targetX, y: targetY });
 
         console.log(`模拟：知识图谱冒出节点 - ${newNode.data.details}`);
         count++;
       } else {
         clearInterval(timer);
       }
-    }, 1500); // Every 1.5 seconds
+    }, 2000); // Every 2 seconds for a smoother feel
   };
 
   // 从后端加载数据 - 被禁用以进行模拟
@@ -370,6 +365,7 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isExpanded, onToggleExp
         <svg
           ref={svgRef}
           className="w-full h-full"
+          style={{ transition: 'viewBox 1s ease-in-out' }} // Smooth transition for viewBox
           viewBox={`${panOffset.x} ${panOffset.y} 800 400`}
           preserveAspectRatio="xMidYMid meet"
           onContextMenu={(e) => e.preventDefault()}
@@ -413,9 +409,9 @@ const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isExpanded, onToggleExp
                 {/* 视觉圆点 */}
                 <circle
                   r={data?.type === 'hub' ? 16 : 10}
-                  fill={isSelected ? '#FF4D4F' : (data?.status === 'active' ? (data?.type === 'hub' ? '#00E5FF' : '#00FF94') : '#FF3D00')}
+                  fill={isSelected ? '#FF4D4F' : (data?.status === 'warning' ? '#FF3D00' : (data?.type === 'hub' ? '#00E5FF' : '#00FF94'))}
                   style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-                  className={`transition-transform duration-300 ${draggingNodeId === node.id ? 'scale-110' : 'group-hover/node:scale-110'} ${isSelected ? 'stroke-white stroke-[3px] shadow-[0_0_15px_#FF4D4F]' : 'stroke-white/20'}`}
+                  className={`transition-all duration-300 ${draggingNodeId === node.id ? 'scale-110' : 'group-hover/node:scale-110'} ${isSelected ? 'stroke-white stroke-[3px] shadow-[0_0_15px_#FF4D4F]' : 'stroke-white/20'} ${data?.status === 'warning' ? 'animate-pulse' : ''}`}
                 />
                 <text y={data?.type === 'hub' ? 32 : 28} textAnchor="middle" className={`text-[9px] font-mono pointer-events-none transition-all ${isSelected ? 'fill-accent-red font-bold' : 'fill-white/60'}`}>
                   {node.id}

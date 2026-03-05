@@ -14,30 +14,69 @@ const App: React.FC = () => {
     links: any[];
   }>({ nodes: [], links: [] });
 
-  // Initial Data Load
+  // Mock simulation logic
   useEffect(() => {
-    initDemoData(); // Load demo.json on start
-    
-    const init = async () => {
-      try {
-        await neo4jWsClient.connect();
-        const unsub = neo4jWsClient.subscribe('neo4j', (data) => {
-           if (data.nodes && data.links) setNeo4jGraphData(data);
-        });
-        
-        // Load initial graph
-        const g = await api.neo4j.getGraph();
-        if (g.nodes) setNeo4jGraphData(g);
-        
-        return () => {
-            unsub();
-            neo4jWsClient.disconnect();
+    const mockNodes = [
+        { id: '路口_A', type: 'intersection', status: 'active', details: '学院路口', x: 0, y: 0 },
+        { id: '路口_B', type: 'intersection', status: 'active', details: '工业路口', x: 200, y: -50 },
+        { id: '路段_AB', type: 'road', status: 'active', details: '学院路-工业路', x: 100, y: -25 },
+        { id: '车辆_1', type: 'vehicle', status: 'active', details: '京A-12345', x: 50, y: -10 },
+        { id: '车辆_2', type: 'vehicle', status: 'active', details: '京B-67890', x: 150, y: -40 },
+        { id: '车辆_3', type: 'vehicle', status: 'active', details: '京C-54321', x: 20, y: 20 },
+        { id: '路口_C', type: 'intersection', status: 'active', details: '幸福路口', x: -100, y: 150 },
+        { id: '路段_AC', type: 'road', status: 'active', details: '学院路-幸福路', x: -50, y: 75 },
+        { id: '车辆_4', type: 'vehicle', status: 'active', details: '京D-09876', x: -80, y: 120 },
+        { id: '车辆_5', type: 'vehicle', status: 'active', details: '京E-11223', x: -30, y: 50 },
+        { id: '车辆_6', type: 'vehicle', status: 'active', details: '京F-AABB', x: -60, y: 90 },
+        { id: '交通事故_1', type: 'event', status: 'critical', details: '严重碰撞', x: -40, y: 65 },
+        { id: '车辆_7', type: 'vehicle', status: 'active', details: '京G-CCDD', x: 220, y: 10 },
+        { id: '车辆_8', type: 'vehicle', status: 'active', details: '京H-EEFF', x: 80, y: 180 },
+        { id: '路口_D', type: 'intersection', status: 'active', details: '和平路口', x: 150, y: 200 },
+        { id: '车辆_9', type: 'vehicle', status: 'active', details: '京I-GGHH', x: 160, y: 150 },
+        { id: '车辆_10', type: 'vehicle', status: 'active', details: '京J-IIJJ', x: 130, y: 220 },
+    ];
+
+    const mockLinks = [
+        { source: '路口_A', target: '路段_AB' }, { source: '路段_AB', target: '路口_B' },
+        { source: '路口_A', target: '路段_AC' }, { source: '路段_AC', target: '路口_C' },
+        { source: '车辆_1', target: '路段_AB' }, { source: '车辆_2', target: '路段_AB' }, 
+        { source: '车辆_3', target: '路口_A' },
+        { source: '车辆_4', target: '路段_AC' }, { source: '车辆_5', target: '路段_AC' },
+        { source: '车辆_6', target: '路段_AC' },
+        { source: '交通事故_1', target: '路段_AC' },
+        { source: '车辆_7', target: '路口_B' },
+        { source: '车辆_8', target: '路口_D' }, { source: '车辆_9', target: '路口_D' }, { source: '车辆_10', target: '路口_D' },
+        { source: '路口_B', target: '路口_D' },
+    ];
+
+    const handleStart = () => {
+      console.log("App simulation started");
+      let count = 0;
+      const timer = setInterval(() => {
+        if (count < mockNodes.length) {
+          const newNode = mockNodes[count];
+          const newLinks = mockLinks.filter(l => l.source === newNode.id || l.target === newNode.id);
+          
+          setNeo4jGraphData(prev => ({
+              nodes: [...prev.nodes, newNode],
+              links: [...prev.links, ...newLinks]
+          }));
+
+          count++;
+        } else {
+          clearInterval(timer);
+          // All nodes are out, now focus on the accident
+          const accidentNode = mockNodes.find(n => n.id === '交通事故_1');
+          if (accidentNode) {
+              const event = new CustomEvent('final-focus', { detail: accidentNode });
+              window.dispatchEvent(event);
+          }
         }
-      } catch (e) {
-        console.warn("Neo4j init failed", e);
-      }
+      }, 400); // Faster!
     };
-    init();
+
+    window.addEventListener('start-simulations', handleStart);
+    return () => window.removeEventListener('start-simulations', handleStart);
   }, []);
 
   return (
@@ -59,7 +98,7 @@ const App: React.FC = () => {
         </div>
         
         {/* KGIN Agent (Embedded in Sidebar) */}
-        <div className="h-48 border-t border-slate-800 pt-2 flex flex-col">
+        <div className="h-32 border-t border-slate-800 pt-2 flex flex-col">
              <div className="border-l-2 border-primary pl-2 mb-1 text-xs font-bold uppercase text-primary flex items-center gap-1">
                  <span className="material-symbols-outlined text-xs">psychology</span>
                  KGIN 决策大脑

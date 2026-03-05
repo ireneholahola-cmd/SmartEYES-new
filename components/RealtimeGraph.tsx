@@ -55,50 +55,65 @@ const RealtimeGraph: React.FC<RealtimeGraphProps> = ({
   const [trafficAdvice, setTrafficAdvice] = useState<TrafficAdvice | null>(null);
   const [recommendedNodes, setRecommendedNodes] = useState<Set<string>>(new Set());
   const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
-  
-  // Phase 3: Visual Tracking
-  const { currentFrame, data } = useStore();
-  const lastTriggerTime = useRef<number>(0);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
+  // Measure container size
   useEffect(() => {
-    if (!data || !data.frames || !fgRef.current) return;
-    
-    // Event Debouncing (3s)
-    const now = Date.now();
-    if (now - lastTriggerTime.current < 3000) return;
-
-    const frameData = data.frames[currentFrame];
-    if (frameData && frameData.events && frameData.events.length > 0) {
-        // Just take the first event for now
-        const event = frameData.events[0];
-        if (event.nodeId) {
-             const node = graphData.nodes.find(n => n.id === event.nodeId);
-             if (node && typeof node.x === 'number' && typeof node.y === 'number') {
-                 // 视觉追踪: Smooth Pan to Node
-                 fgRef.current.centerAt(node.x, node.y, 800);
-                 fgRef.current.zoom(2, 800);
-                 
-                 // Highlight (Temporary)
-                 setSelectedNode(node);
-                 lastTriggerTime.current = now;
-             }
-        }
-    }
-  }, [currentFrame, data, graphData]);
-
-  // 计算统计信息
-  useEffect(() => {
-    const vehicles = graphData.nodes.filter(n => n.type === 'Vehicle');
-    const roads = graphData.nodes.filter(n => n.type === 'Road' || n.type === 'RoadSegment');
-    const totalSpeed = vehicles.reduce((sum, v) => sum + (v.speed || 0), 0);
-    const avgSpeed = vehicles.length > 0 ? totalSpeed / vehicles.length : 0;
-
-    setStats({
-      vehicles: vehicles.length,
-      roads: roads.length,
-      avgSpeed: Math.round(avgSpeed * 10) / 10
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        const { width, height } = entries[0].contentRect;
+        setDimensions({ width, height });
+      }
     });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+  
+  // Phase 3: Visual Tracking & Simulation Focus
+  useEffect(() => {
+    if (!fgRef.current) return;
+
+    const currentCount = graphData.nodes.length;
+    const prevCount = prevNodeCountRef.current;
+
+    if (currentCount > prevCount) {
+      const newNode = graphData.nodes[graphData.nodes.length - 1];
+      
+      // The key fix: Wait for the physics engine to assign coordinates
+      setTimeout(() => {
+        if (newNode && typeof newNode.x === 'number' && typeof newNode.y === 'number') {
+          fgRef.current?.centerAt(newNode.x, newNode.y, 800);
+          fgRef.current?.zoom(3, 800);
+        }
+      }, 100); // A small delay is often enough
+    }
+
+    prevNodeCountRef.current = currentCount;
+
   }, [graphData.nodes]);
+
+  useEffect(() => {
+    const handleFinalFocus = (e: any) => {
+        const node = e.detail;
+        if (node && fgRef.current) {
+            setTimeout(() => {
+                if (typeof node.x === 'number' && typeof node.y === 'number') {
+                    fgRef.current?.centerAt(node.x, node.y, 1200);
+                    fgRef.current?.zoom(1, 1200);
+                }
+            }, 100);
+        }
+    };
+
+    window.addEventListener('final-focus', handleFinalFocus);
+    return () => window.removeEventListener('final-focus', handleFinalFocus);
+  }, []);
 
   // 动态缩放：当节点数量变化较大时自动调整视图
   useEffect(() => {
@@ -148,6 +163,8 @@ const RealtimeGraph: React.FC<RealtimeGraphProps> = ({
   // 节点颜色映射
   const getNodeColor = useCallback((node: any, isSelected: boolean, isHovered: boolean, isRecommended: boolean) => {
     if (isSelected) return '#ff4d4f'; // 选中状态 - 红色
+    if (node.status === 'critical') return '#ef4444'; // 严重警示 - 亮红色
+    if (node.status === 'warning') return '#facc15'; // 普通警示 - 黄色
     if (isRecommended) return '#00ff9d'; // 推荐路线 - 亮绿色
     if (isHovered) return '#ffd700'; // 悬停状态 - 金色
 
@@ -174,7 +191,9 @@ const RealtimeGraph: React.FC<RealtimeGraphProps> = ({
     const baseSize = node.type === 'Vehicle' ? 5 : 8;
 
     // 呼吸动画效果
-    const pulse = node.type === 'Vehicle' ? (1 + Math.sin(Date.now() / 150) * 0.15) : 1;
+    const pulse = (node.type === 'Vehicle' || node.status === 'warning' || node.status === 'critical') 
+        ? (1 + Math.sin(Date.now() / (node.status === 'critical' ? 80 : 150)) * 0.2) 
+        : 1;
     const nodeSize = (isSelected || isHovered || isRecommended ? baseSize * 1.3 : baseSize) * pulse;
 
     const glowColor = getNodeColor(node, isSelected, isHovered, isRecommended);
@@ -330,6 +349,8 @@ const RealtimeGraph: React.FC<RealtimeGraphProps> = ({
         ) : (
           <ForceGraph2D
             ref={fgRef}
+            width={dimensions.width}
+            height={dimensions.height}
             graphData={graphData}
             nodeLabel=""
             nodeCanvasObject={drawNode}
