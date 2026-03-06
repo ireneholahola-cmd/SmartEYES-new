@@ -118,7 +118,7 @@ const VideoGrid: React.FC = () => {
     return (
         <div className="w-full h-full relative rounded-lg overflow-hidden border border-primary/40 bg-black group flex flex-col items-center justify-center">
             <video 
-                src="/assets/demo.mp4" 
+                src="/assets/Demo.mp4" 
                 controls 
                 autoPlay 
                 loop 
@@ -126,7 +126,7 @@ const VideoGrid: React.FC = () => {
                 className="w-full h-full object-contain"
             />
             <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded text-xs font-bold text-primary backdrop-blur-sm border border-primary/20">
-                模拟视频.mp4
+                模拟视频 (Demo.mp4)
             </div>
         </div>
     );
